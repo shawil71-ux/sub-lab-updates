@@ -1,0 +1,7 @@
+{
+"label":"SUB-LAB",
+"icon":"icon.png",
+"iconsel":"icon.png",
+"launch":"launch.sh",
+"description":"Sampler, synth and sequencer"
+}
