@@ -9,13 +9,17 @@ R=update-result.txt
 rm -f "$R"
 chmod +x ./fetch 2>/dev/null
 
-get() {   # get <url> <file>: our own downloader first, then whatever the system has
+chmod +x ./fetch-update 2>/dev/null
+get() {   # get <url> <file>: the proven update downloader, then the radio helper, then whatever the system has
   rm -f "$2"
+  [ -x ./fetch-update ] && ./fetch-update get "$1" "$2" ./cacert.pem && [ -s "$2" ] && return 0
   ./fetch get "$1" "$2" ./cacert.pem && [ -s "$2" ] && return 0
   command -v curl >/dev/null 2>&1 && curl -fsSL --max-time 300 -o "$2" "$1" && [ -s "$2" ] && return 0
   command -v wget >/dev/null 2>&1 && wget -q -O "$2" "$1" && [ -s "$2" ] && return 0
   return 1
 }
+
+sha() { ./fetch-update sha "$1" 2>/dev/null || ./fetch sha "$1" 2>/dev/null; }
 
 rm -rf update && mkdir -p update
 if ! get "$BASE/manifest.txt" update/manifest.txt; then
@@ -30,9 +34,9 @@ if [ "$NEW" = "$CUR" ]; then echo "same $CUR" > "$R"; exit 0; fi
 grep '^file ' update/manifest.txt > update/files.txt
 while read -r k sha name; do
   case "$name" in */*|.*|"") continue ;; esac
-  if [ -f "$name" ] && [ "$(./fetch sha "$name" 2>/dev/null)" = "$sha" ]; then continue; fi
+  if [ -f "$name" ] && [ "$(sha "$name")" = "$sha" ]; then continue; fi
   get "$BASE/$name" "update/$name" || { echo "fail could not download $name" > "$R"; break; }
-  [ "$(./fetch sha "update/$name")" = "$sha" ] || { echo "fail $name arrived damaged, try again" > "$R"; break; }
+  [ "$(sha "update/$name")" = "$sha" ] || { echo "fail $name arrived damaged, try again" > "$R"; break; }
 done < update/files.txt
 [ -f "$R" ] && exit 1
 
@@ -42,7 +46,7 @@ for f in update/*; do
   case "$n" in manifest.txt|files.txt) continue ;; esac
   mv -f "$f" "./$n" || { echo "fail could not replace $n" > "$R"; exit 1; }
 done
-chmod +x ./sub-lab ./fetch ./launch.sh ./update.sh 2>/dev/null
+chmod +x ./sub-lab ./fetch ./fetch-update ./launch.sh ./update.sh 2>/dev/null
 echo "$NEW" > version.txt
 sync
 echo "ok $NEW" > "$R"
